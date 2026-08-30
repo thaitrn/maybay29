@@ -33,9 +33,9 @@ export function v3Routes(fastify, { db, bad }) {
     // không nhận HTML/control chars
     name = name.replace(/[\u0000-\u001f\u007f]/g, '').trim();
     if ([...name].length < 1 || [...name].length > 24) return bad(reply, 400, 'INVALID_NAME', 'display_name 1-24 ký tự');
-    const existing = db.prepare('SELECT id FROM player WHERE id = ?').get(player_id);
-    db.prepare(`INSERT INTO player (id, display_name) VALUES (?, ?)
-      ON CONFLICT(id) DO UPDATE SET display_name = excluded.display_name, updated_at = datetime('now')`).run(player_id, name);
+    const existing = await db.get('SELECT id FROM player WHERE id = $1', [player_id]);
+    await db.run(`INSERT INTO player (id, display_name) VALUES ($1, $2)
+      ON CONFLICT(id) DO UPDATE SET display_name = excluded.display_name, updated_at = CURRENT_TIMESTAMP`, [player_id, name]);
     return reply.status(existing ? 200 : 201).send({ player_id, display_name: name });
   });
 
@@ -44,15 +44,15 @@ export function v3Routes(fastify, { db, bad }) {
     const { player_id, client_version } = req.body ?? {};
     if (!rateLimit(`runs:${req.ip}:${player_id ?? ''}`, 30, 60_000)) return bad(reply, 429, 'RATE_LIMITED', 'Quá nhiều request');
     if (!UUID_RE.test(player_id ?? '')) return bad(reply, 400, 'INVALID_PLAYER_ID', 'player_id phải là UUID v4');
-    if (!db.prepare('SELECT id FROM player WHERE id = ?').get(player_id)) {
+    if (!(await db.get('SELECT id FROM player WHERE id = $1', [player_id]))) {
       return bad(reply, 404, 'PLAYER_NOT_FOUND', 'Register /v3/players trước');
     }
     const runId = randomUUID();
     const now = Date.now();
     const startedAt = new Date(now).toISOString();
     const expiresAt = new Date(now + RUN_TTL_MS).toISOString();
-    db.prepare('INSERT INTO run (id, player_id, client_version, config_version, started_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(runId, player_id, typeof client_version === 'string' ? client_version.slice(0, 64) : null, CONFIG_VERSION, startedAt, expiresAt);
+    await db.run('INSERT INTO run (id, player_id, client_version, config_version, started_at, expires_at) VALUES ($1, $2, $3, $4, $5, $6)',
+      [runId, player_id, typeof client_version === 'string' ? client_version.slice(0, 64) : null, CONFIG_VERSION, startedAt, expiresAt]);
     return reply.status(201).send({ run_id: runId, started_at: startedAt, expires_at: expiresAt, config_version: CONFIG_VERSION });
   });
 
@@ -62,7 +62,7 @@ export function v3Routes(fastify, { db, bad }) {
     const { run_id } = req.params;
     if (!rateLimit(`finish:${req.ip}:${b.player_id ?? ''}`, 30, 60_000)) return bad(reply, 429, 'RATE_LIMITED', 'Quá nhiều request');
     if (!UUID_RE.test(b.player_id ?? '')) return bad(reply, 400, 'INVALID_PLAYER_ID', 'player_id phải là UUID v4');
-    const run = db.prepare('SELECT * FROM run WHERE id = ?').get(run_id);
+    const run = await db.get('SELECT * FROM run WHERE id = $1', [run_id]);
     if (!run) return bad(reply, 404, 'RUN_NOT_FOUND', 'Run không tồn tại');
     if (run.player_id !== b.player_id) return bad(reply, 403, 'RUN_NOT_FOUND', 'Run không thuộc player này');
     if (Date.now() > Date.parse(run.expires_at)) return bad(reply, 410, 'RUN_EXPIRED', 'Run đã quá 120 giây');
@@ -88,35 +88,39 @@ export function v3Routes(fastify, { db, bad }) {
     const finishHash = createHash('sha256').update(JSON.stringify({ run_id, player_id: b.player_id, duration_ms: dur, score, finish_reason: b.finish_reason, stats: st })).digest('hex');
     const accepted = b.finish_reason !== 'abandon' ? 1 : 0;
 
-    const finish = db.transaction(() => {
-      const prev = db.prepare('SELECT finish_hash FROM run WHERE id = ?').get(run_id);
-      if (prev.finish_hash) {
-        if (prev.finish_hash !== finishHash) return { conflict: true };
-        const row = db.prepare('SELECT * FROM score_v3 WHERE run_id = ?').get(run_id);
-        return { replay: true, row };
-      }
-      const achievedAt = new Date().toISOString();
-      db.prepare('UPDATE run SET finished_at = ?, finish_hash = ? WHERE id = ?').run(achievedAt, finishHash, run_id);
-      if (accepted) {
-        db.prepare(`INSERT INTO score_v3 (run_id, player_id, value, duration_ms, finish_reason, stars, enemies, gates, near_misses, base_points, combo_bonus, max_combo, achieved_at, accepted)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`)
-          .run(run_id, b.player_id, score, dur, b.finish_reason, st.stars, st.enemies, st.gates, st.near_misses, st.base_points, st.combo_bonus, st.max_combo, achievedAt);
-        db.prepare(`INSERT INTO daily_stats (player_id, date, rounds, play_seconds, best_score) VALUES (?, date('now'), 1, ?, ?)
-          ON CONFLICT(player_id, date) DO UPDATE SET rounds = rounds + 1, play_seconds = play_seconds + excluded.play_seconds, best_score = MAX(best_score, excluded.best_score)`)
-          .run(b.player_id, Math.round(dur / 1000), score);
-      }
-      return { replay: false, achievedAt };
-    });
-
-    const r = finish();
+    let r;
+    try {
+      r = await db.tx(async (t) => {
+        const prev = await t.get('SELECT finish_hash FROM run WHERE id = $1', [run_id]);
+        if (prev.finish_hash) {
+          if (prev.finish_hash !== finishHash) return { conflict: true };
+          const row = await t.get('SELECT * FROM score_v3 WHERE run_id = $1', [run_id]);
+          return { replay: true, row };
+        }
+        const achievedAt = new Date().toISOString();
+        await t.run('UPDATE run SET finished_at = $1, finish_hash = $2 WHERE id = $3', [achievedAt, finishHash, run_id]);
+        if (accepted) {
+          await t.run(`INSERT INTO score_v3 (run_id, player_id, value, duration_ms, finish_reason, stars, enemies, gates, near_misses, base_points, combo_bonus, max_combo, achieved_at, accepted)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 1)`,
+            [run_id, b.player_id, score, dur, b.finish_reason, st.stars, st.enemies, st.gates, st.near_misses, st.base_points, st.combo_bonus, st.max_combo, achievedAt]);
+          await t.run(`INSERT INTO daily_stats (player_id, date, rounds, play_seconds, best_score) VALUES ($1, $2, 1, $3, $4)
+            ON CONFLICT(player_id, date) DO UPDATE SET rounds = rounds + 1, play_seconds = play_seconds + excluded.play_seconds, best_score = MAX(best_score, excluded.best_score)`,
+            [b.player_id, new Date().toISOString().slice(0, 10), Math.round(dur / 1000), score]);
+        }
+        return { replay: false, achievedAt };
+      });
+    } catch (e) {
+      req.log.error({ err: e }, 'finish tx failed');
+      return bad(reply, 500, 'DB_ERROR', 'Không ghi được kết quả');
+    }
     if (r.conflict) return bad(reply, 409, 'RUN_ALREADY_FINISHED', 'Run đã finish với payload khác');
 
     let personalBest = false, rank = null, achievedAt = r.achievedAt;
     if (accepted) {
-      const better = db.prepare('SELECT COUNT(*) AS n FROM score_v3 WHERE player_id = ? AND value > ?').get(b.player_id, score).n;
-      personalBest = better === 0;
+      const better = await db.get('SELECT COUNT(*) AS n FROM score_v3 WHERE player_id = $1 AND value > $2', [b.player_id, score]);
+      personalBest = Number(better.n) === 0;
       if (personalBest) {
-        rank = (db.prepare(`SELECT COUNT(DISTINCT player_id) AS n FROM score_v3 WHERE value > ?`).get(score).n) + 1;
+        rank = Number((await db.get('SELECT COUNT(DISTINCT player_id) AS n FROM score_v3 WHERE value > $1', [score])).n) + 1;
       }
       if (r.replay) achievedAt = r.row.achieved_at;
     }
@@ -128,7 +132,7 @@ export function v3Routes(fastify, { db, bad }) {
   fastify.get('/v3/leaderboard', async (req, reply) => {
     if (!rateLimit(`lb:${req.ip}`, 60, 60_000)) return bad(reply, 429, 'RATE_LIMITED', 'Quá nhiều request');
     const limit = Math.min(50, Math.max(1, Number(req.query?.limit) || 10));
-    const rows = db.prepare(`
+    const rows = await db.all(`
       SELECT s.player_id, p.display_name, s.value AS score, s.max_combo, s.achieved_at,
              ROW_NUMBER() OVER (ORDER BY s.value DESC, s.achieved_at ASC) AS rank
       FROM score_v3 s
@@ -138,9 +142,9 @@ export function v3Routes(fastify, { db, bad }) {
       WHERE s.accepted = 1
       GROUP BY s.player_id
       ORDER BY score DESC, s.achieved_at ASC
-      LIMIT ?`).all(limit);
+      LIMIT $1`, [limit]);
     return {
-      leaderboard: rows.map(r => ({ rank: r.rank, display_name: r.display_name, score: r.score, max_combo: r.max_combo, achieved_at: r.achieved_at })),
+      leaderboard: rows.map(r => ({ rank: Number(r.rank), display_name: r.display_name, score: r.score, max_combo: r.max_combo, achieved_at: r.achieved_at })),
       config_version: CONFIG_VERSION,
     };
   });

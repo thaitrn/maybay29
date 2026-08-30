@@ -10,27 +10,26 @@ export function statsRoutes(fastify, { db, bad }) {
     if (!Number.isInteger(rounds) || rounds < 0) return bad(reply, 400, 'INVALID_ROUNDS', 'rounds >= 0');
     if (!Number.isInteger(play_seconds) || play_seconds < 0) return bad(reply, 400, 'INVALID_PLAY_SECONDS', 'play_seconds >= 0');
     if (!Number.isInteger(best_score) || best_score < 0) return bad(reply, 400, 'INVALID_BEST_SCORE', 'best_score >= 0');
-    if (!db.prepare('SELECT id FROM player WHERE id = ?').get(player_id)) {
+    if (!(await db.get('SELECT id FROM player WHERE id = $1', [player_id]))) {
       return bad(reply, 404, 'PLAYER_NOT_FOUND', 'Chưa register player');
     }
-    const upsert = db.transaction(() => {
-      const cur = db.prepare('SELECT id, rounds, play_seconds, best_score FROM session_stats WHERE player_id = ? AND date = ?').get(player_id, date);
+    await db.tx(async (t) => {
+      const cur = await t.get('SELECT id, rounds, play_seconds, best_score FROM session_stats WHERE player_id = $1 AND date = $2', [player_id, date]);
       if (!cur) {
-        db.prepare('INSERT INTO session_stats (player_id, date, rounds, play_seconds, best_score) VALUES (?, ?, ?, ?, ?)')
-          .run(player_id, date, rounds, play_seconds, best_score);
+        await t.run('INSERT INTO session_stats (player_id, date, rounds, play_seconds, best_score) VALUES ($1, $2, $3, $4, $5)',
+          [player_id, date, rounds, play_seconds, best_score]);
       } else {
-        db.prepare('UPDATE session_stats SET rounds = ?, play_seconds = ?, best_score = MAX(best_score, ?) WHERE id = ?')
-          .run(cur.rounds + rounds, cur.play_seconds + play_seconds, best_score, cur.id);
+        await t.run('UPDATE session_stats SET rounds = $1, play_seconds = $2, best_score = MAX(best_score, $3) WHERE id = $4',
+          [cur.rounds + rounds, cur.play_seconds + play_seconds, best_score, cur.id]);
       }
     });
-    upsert();
-    const row = db.prepare('SELECT player_id, date, rounds, play_seconds, best_score, created_at FROM session_stats WHERE player_id = ? AND date = ?').get(player_id, date);
+    const row = await db.get('SELECT player_id, date, rounds, play_seconds, best_score, created_at FROM session_stats WHERE player_id = $1 AND date = $2', [player_id, date]);
     return reply.status(201).send(row);
   });
 
   fastify.get('/v2/stats/:player_id', async (req, reply) => {
     if (!UUID_RE.test(req.params.player_id)) return bad(reply, 400, 'INVALID_PLAYER_ID', 'player_id phải là UUID v4');
-    const rows = db.prepare('SELECT date, rounds, play_seconds, best_score, created_at FROM session_stats WHERE player_id = ? ORDER BY date ASC').all(req.params.player_id);
+    const rows = await db.all('SELECT date, rounds, play_seconds, best_score, created_at FROM session_stats WHERE player_id = $1 ORDER BY date ASC', [req.params.player_id]);
     return { player_id: req.params.player_id, count: rows.length, stats: rows };
   });
 }
