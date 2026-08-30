@@ -1,6 +1,5 @@
 .vercel
 .env*
-
-.vercel/
 .env.local
 .env.neon
+data/
