@@ -1,0 +1,23 @@
+{
+  "name": "maybay29-api",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test test/v3.test.mjs",
+    "start": "node src/server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.3.0",
+    "better-sqlite3": "^13.0.3",
+    "fastify": "^5.12.1",
+    "pg": "^8.23.0"
+  }
+}

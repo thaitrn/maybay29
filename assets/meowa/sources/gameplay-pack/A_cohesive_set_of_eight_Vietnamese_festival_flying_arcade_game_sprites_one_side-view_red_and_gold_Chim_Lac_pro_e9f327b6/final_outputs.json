@@ -1,0 +1,51 @@
+{
+  "status": "success",
+  "job_id": "job_8094946e6faf4124895457d981caf89d",
+  "outputs": [
+    {
+      "type": "media",
+      "path": "assets/meowa/sources/gameplay-pack/A_cohesive_set_of_eight_Vietnamese_festival_flying_arcade_game_sprites_one_side-view_red_and_gold_Chim_Lac_pro_e9f327b6/sprite_00.png",
+      "mime_type": "image/png"
+    },
+    {
+      "type": "media",
+      "path": "assets/meowa/sources/gameplay-pack/A_cohesive_set_of_eight_Vietnamese_festival_flying_arcade_game_sprites_one_side-view_red_and_gold_Chim_Lac_pro_e9f327b6/sprite_01.png",
+      "mime_type": "image/png"
+    },
+    {
+      "type": "media",
+      "path": "assets/meowa/sources/gameplay-pack/A_cohesive_set_of_eight_Vietnamese_festival_flying_arcade_game_sprites_one_side-view_red_and_gold_Chim_Lac_pro_e9f327b6/sprite_02.png",
+      "mime_type": "image/png"
+    },
+    {
+      "type": "media",
+      "path": "assets/meowa/sources/gameplay-pack/A_cohesive_set_of_eight_Vietnamese_festival_flying_arcade_game_sprites_one_side-view_red_and_gold_Chim_Lac_pro_e9f327b6/sprite_03.png",
+      "mime_type": "image/png"
+    },
+    {
+      "type": "media",
+      "path": "assets/meowa/sources/gameplay-pack/A_cohesive_set_of_eight_Vietnamese_festival_flying_arcade_game_sprites_one_side-view_red_and_gold_Chim_Lac_pro_e9f327b6/sprite_04.png",
+      "mime_type": "image/png"
+    },
+    {
+      "type": "media",
+      "path": "assets/meowa/sources/gameplay-pack/A_cohesive_set_of_eight_Vietnamese_festival_flying_arcade_game_sprites_one_side-view_red_and_gold_Chim_Lac_pro_e9f327b6/sprite_05.png",
+      "mime_type": "image/png"
+    },
+    {
+      "type": "media",
+      "path": "assets/meowa/sources/gameplay-pack/A_cohesive_set_of_eight_Vietnamese_festival_flying_arcade_game_sprites_one_side-view_red_and_gold_Chim_Lac_pro_e9f327b6/sprite_06.png",
+      "mime_type": "image/png"
+    },
+    {
+      "type": "media",
+      "path": "assets/meowa/sources/gameplay-pack/A_cohesive_set_of_eight_Vietnamese_festival_flying_arcade_game_sprites_one_side-view_red_and_gold_Chim_Lac_pro_e9f327b6/sprite_07.png",
+      "mime_type": "image/png"
+    },
+    {
+      "type": "media",
+      "path": "assets/meowa/sources/gameplay-pack/A_cohesive_set_of_eight_Vietnamese_festival_flying_arcade_game_sprites_one_side-view_red_and_gold_Chim_Lac_pro_e9f327b6/sprite_pack_preview.png",
+      "mime_type": "image/png"
+    }
+  ]
+}
