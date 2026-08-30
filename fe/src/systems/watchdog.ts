@@ -1,22 +1,26 @@
 /**
- * FE watchdog chống đứng game (bug Safari iOS qua tunnel: main thread treo khi tap nhảy nhanh).
- * Cứ 3s kiểm tra: nếu tab visible + đang ở scene 'Game' mà
- *   - actualFps < 10, HOẶC
- *   - RAF đứng (game.loop.frame không tăng giữa 2 lần đo)
- * thì hồi phục: lần 1 nhẹ (sleep/resume loop + reset input stuck),
- * lần 2 liên tiếp: location.reload() (sếp xác nhận reload là chữa được).
- * KHÔNG đụng touch.ts, KHÔNG reload ở menu/scene khác.
+ * FE watchdog: recover only when RAF is actually frozen (frame not advancing).
+ * Low FPS while frames still increase is NOT a strike — never location.reload for that.
+ * Two consecutive frozen samples (default 3s apart) → soft recover, then reload.
  */
 
 export interface WatchdogHandle { stop(): void; }
 
-/** Test hook: nếu intervalFn cung cấp, nó nhận (tick) và tự điều khiển nhịp. */
 export interface WatchdogDeps {
   setIntervalFn?: (fn: () => void, ms: number) => unknown;
   clearIntervalFn?: (id: unknown) => void;
   reloadFn?: () => void;
   warnFn?: (...args: unknown[]) => void;
   intervalMs?: number;
+}
+
+export type WatchdogVerdict = 'ok' | 'sample' | 'frozen';
+
+/** Pure decision: ignore actualFps if frame advanced. First sample never frozen. */
+export function watchdogVerdict(frame: number, lastFrame: number, _actualFps?: number): WatchdogVerdict {
+  if (lastFrame < 0) return 'sample';
+  if (frame !== lastFrame) return 'ok';
+  return 'frozen';
 }
 
 export function startWatchdog(game: Phaser.Game, deps: WatchdogDeps = {}): WatchdogHandle {
@@ -40,26 +44,25 @@ export function startWatchdog(game: Phaser.Game, deps: WatchdogDeps = {}): Watch
   };
 
   const tick = (): void => {
-    // Chỉ chạy khi tab visible và đang ở scene Game — không reload giữa menu.
     if (document.visibilityState !== 'visible') return;
     if (!inGameScene()) { strikes = 0; lastFrame = -1; return; }
 
     const loop = game.loop as unknown as { frame: number; actualFps: number; sleep(): void; resume(): void; running: boolean };
-    const frozen = loop.frame === lastFrame; // RAF đứng: frame không tăng
+    const verdict = watchdogVerdict(loop.frame, lastFrame, loop.actualFps);
     lastFrame = loop.frame;
-    const lowFps = loop.actualFps < 10;
-    if (!frozen && !lowFps) { strikes = 0; return; }
+    if (verdict !== 'frozen') {
+      strikes = 0;
+      return;
+    }
 
     strikes++;
     if (strikes === 1) {
-      // Lần 1: biện pháp nhẹ — sleep/resume loop + giải phóng phím held.
-      warn('[watchdog] recovered (soft: loop sleep/resume + reset input)', { fps: loop.actualFps, frozen });
+      warn('[watchdog] recovered (soft: loop sleep/resume + reset input)', { fps: loop.actualFps, frozen: true });
       try { if (loop.running) loop.sleep(); } catch { /* ignore */ }
       try { loop.resume(); } catch { /* ignore */ }
       resetInput();
     } else {
-      // Lần 2 liên tiếp: reload trang.
-      warn('[watchdog] recovered (reload)', { fps: loop.actualFps, frozen });
+      warn('[watchdog] recovered (reload)', { fps: loop.actualFps, frozen: true });
       reload();
     }
   };

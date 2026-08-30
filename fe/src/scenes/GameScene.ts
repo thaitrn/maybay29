@@ -7,6 +7,7 @@ import { addEvent, comboMult, emptyStats, GRACE_MS, INVULN_MS, LIVES, ROUND_MS, 
 import { buildTimeline, type SpawnSpec } from '../game/director';
 import { sfx } from '../systems/audio';
 import { isMuted, toggleMuted } from '../systems/audio';
+import { durationMsFromWall, roundOver, splitDt } from '../systems/clock';
 
 type EntKind = SpawnSpec['kind'] | 'bullet' | 'cloudTop' | 'cloudBot';
 
@@ -35,6 +36,8 @@ export class GameScene extends Phaser.Scene {
   private timeline: SpawnSpec[] = [];
   private spawnI = 0;
   private elapsed = 0;
+  /** Unclamped session seconds (visible tab). Timer/finish use this, not physics dt. */
+  private wallElapsed = 0;
   private score = 0;
   private streak = 0;
   private lives = LIVES;
@@ -65,6 +68,7 @@ export class GameScene extends Phaser.Scene {
     this.timeline = buildTimeline(1 + Math.floor(Math.random() * 90));
     this.spawnI = 0;
     this.elapsed = 0;
+    this.wallElapsed = 0;
     this.score = 0;
     this.streak = 0;
     this.lives = LIVES;
@@ -143,9 +147,10 @@ export class GameScene extends Phaser.Scene {
 
   update(_t: number, dtMs: number): void {
     if (this.ended) return;
-    const dt = Math.min(dtMs / 1000, 1 / 30);
+    const { wall, phys: dt } = splitDt(dtMs);
     this.elapsed += dt;
-    const left = Math.max(0, ROUND_MS / 1000 - this.elapsed);
+    this.wallElapsed += wall;
+    const left = Math.max(0, ROUND_MS / 1000 - this.wallElapsed);
     this.hudTime.setText(String(Math.ceil(left)));
 
     this.planeS = stepPlane(this.planeS, dt);
@@ -159,7 +164,7 @@ export class GameScene extends Phaser.Scene {
     this.collide();
     this.hud();
 
-    if (this.elapsed >= 60 || this.lives <= 0) this.finish(this.lives <= 0 ? 'lives' : 'timer');
+    if (roundOver(this.wallElapsed, this.lives)) this.finish(this.lives <= 0 ? 'lives' : 'timer');
   }
 
   private spawn(): void {
@@ -335,7 +340,7 @@ export class GameScene extends Phaser.Scene {
   private finish(reason: 'timer' | 'lives'): void {
     if (this.ended) return;
     this.ended = true;
-    const duration_ms = Math.min(60_000, Math.max(1000, Math.round(this.elapsed * 1000)));
+    const duration_ms = durationMsFromWall(this.wallElapsed);
     const payload = {
       score: this.score,
       duration_ms,

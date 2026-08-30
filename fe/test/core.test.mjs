@@ -4,6 +4,8 @@ import { applyLift, createPlane, stepPlane, PLAYER_H } from '../src/game/physics
 import { addEvent, comboMult, derivedScore, emptyStats } from '../src/game/scoring.ts';
 import { auditSeeds, buildTimeline, validateTimeline } from '../src/game/director.ts';
 import { applyRun } from '../src/game/progress.ts';
+import { durationMsFromWall, roundOver, splitDt } from '../src/systems/clock.ts';
+import { startWatchdog, watchdogVerdict } from '../src/systems/watchdog.ts';
 
 test('one lift impulse changes vy once', () => {
   const p = createPlane();
@@ -46,6 +48,61 @@ test('timeline has all archetypes and safe gaps', () => {
 test('100 seeded runs', () => {
   const a = auditSeeds(100);
   assert.equal(a.ok, true, `failed ${a.failed.join(',')}`);
+});
+
+test('low-FPS physics dt is clamped but wall clock is not', () => {
+  const slow = splitDt(200); // 5 FPS frame
+  assert.equal(slow.phys, 1 / 30);
+  assert.ok(Math.abs(slow.wall - 0.2) < 1e-9);
+  let wall = 0;
+  let phys = 0;
+  for (let i = 0; i < 300; i++) {
+    const d = splitDt(200);
+    wall += d.wall;
+    phys += d.phys;
+  }
+  assert.ok(wall >= 59.9 && wall <= 60.1, `wall=${wall}`);
+  assert.ok(phys < 20, `phys must not drive the 60s timer, phys=${phys}`);
+  assert.equal(roundOver(60, 3), true);
+  assert.equal(roundOver(59.9, 3), false);
+  assert.equal(durationMsFromWall(60.4), 60_000);
+});
+
+test('watchdog ignores low FPS while frames advance; reloads only on frozen RAF', () => {
+  assert.equal(watchdogVerdict(1, -1, 3), 'sample');
+  assert.equal(watchdogVerdict(12, 11, 4), 'ok');
+  assert.equal(watchdogVerdict(12, 12, 60), 'frozen');
+
+  if (typeof globalThis.document === 'undefined') {
+    globalThis.document = { visibilityState: 'visible' };
+  }
+  const vis = Object.getOwnPropertyDescriptor(globalThis.document, 'visibilityState');
+  Object.defineProperty(globalThis.document, 'visibilityState', { configurable: true, get: () => 'visible' });
+
+  let ticks = [];
+  const game = {
+    scene: { isActive: () => true, getScenes: () => [{ scene: { key: 'Game' } }] },
+    input: { keyboard: { resetKeys() {} } },
+    loop: { frame: 1, actualFps: 4, running: true, sleep() {}, resume() {} },
+  };
+  let reloads = 0;
+  const handle = startWatchdog(game, {
+    setIntervalFn: (fn) => { ticks.push(fn); return 1; },
+    clearIntervalFn: () => {},
+    reloadFn: () => { reloads += 1; },
+    warnFn: () => {},
+  });
+  ticks[0]();
+  game.loop.frame = 2;
+  ticks[0]();
+  game.loop.frame = 3;
+  ticks[0]();
+  assert.equal(reloads, 0, 'low fps + advancing frames must not reload');
+  ticks[0]();
+  ticks[0]();
+  assert.equal(reloads, 1, 'two consecutive frozen samples reload');
+  handle.stop();
+  if (vis) Object.defineProperty(document, 'visibilityState', vis);
 });
 
 test('unlock thresholds', () => {
