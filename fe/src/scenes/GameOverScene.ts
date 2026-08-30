@@ -5,6 +5,7 @@ import { ensurePlayerId } from '../systems/player';
 import { applyRun, loadMeta, saveMeta, SKINS } from '../game/progress';
 import { sfx } from '../systems/audio';
 import { showToast } from '../systems/ui';
+import { canUpdateGameObject } from '../systems/sceneUi';
 import type { RunStats } from '../game/scoring';
 
 export interface OverData {
@@ -17,6 +18,8 @@ export interface OverData {
 }
 
 export class GameOverScene extends Phaser.Scene {
+  private submitGen = 0;
+
   constructor() {
     super('GameOver');
   }
@@ -60,7 +63,11 @@ export class GameOverScene extends Phaser.Scene {
     const btnT = this.add.text(GAME_W / 2, 280, 'CHƠI LẠI', {
       fontFamily: '"Be Vietnam Pro", system-ui, Arial, sans-serif', fontSize: '28px', color: '#F5E9D0', fontStyle: 'bold',
     }).setOrigin(0.5);
-    const replay = () => this.scene.start('Game');
+    const gen = ++this.submitGen;
+    const replay = () => {
+      this.submitGen += 1;
+      this.scene.start('Game');
+    };
     btn.on('pointerdown', replay);
     btnT.setInteractive({ useHandCursor: true }).on('pointerdown', replay);
     this.input.keyboard?.on('keydown-ENTER', replay);
@@ -80,11 +87,23 @@ export class GameOverScene extends Phaser.Scene {
     (this.game as unknown as { __scene: string; __result: OverData }).__scene = 'GameOver';
     (this.game as unknown as { __result: OverData }).__result = data;
 
-    void this.submit(data, status, board);
+    void this.submit(data, status, board, gen);
     sfx.bloom();
   }
 
-  private async submit(data: OverData, status: Phaser.GameObjects.Text, board: Phaser.GameObjects.Text): Promise<void> {
+  private canPaint(gen: number, obj: Phaser.GameObjects.Text): boolean {
+    if (gen !== this.submitGen) return false;
+    if (!this.sys.isActive()) return false;
+    if (obj.scene !== this) return false;
+    return canUpdateGameObject(true, obj);
+  }
+
+  private async submit(
+    data: OverData,
+    status: Phaser.GameObjects.Text,
+    board: Phaser.GameObjects.Text,
+    gen: number,
+  ): Promise<void> {
     const pid = ensurePlayerId();
     await api.registerPlayer(pid, 'Phi công 2/9');
     let ok = false;
@@ -98,9 +117,12 @@ export class GameOverScene extends Phaser.Scene {
       };
       const fin = await api.finishRun(data.runId, body);
       ok = !!fin;
-      (this.game as unknown as { __lastSubmit: { ok: boolean } }).__lastSubmit = { ok };
+      if (this.sys.isActive() && gen === this.submitGen) {
+        (this.game as unknown as { __lastSubmit: { ok: boolean } }).__lastSubmit = { ok };
+      }
     }
     const lb = await api.leaderboard(8);
+    if (!this.canPaint(gen, status) || !this.canPaint(gen, board)) return;
     if (!lb) {
       status.setText('Bảng xếp hạng đang offline — điểm vẫn lưu trên máy.');
       board.setText('');

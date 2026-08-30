@@ -4,8 +4,9 @@ import { applyLift, createPlane, stepPlane, PLAYER_H } from '../src/game/physics
 import { addEvent, comboMult, derivedScore, emptyStats } from '../src/game/scoring.ts';
 import { auditSeeds, buildTimeline, validateTimeline } from '../src/game/director.ts';
 import { applyRun } from '../src/game/progress.ts';
-import { durationMsFromWall, roundOver, splitDt } from '../src/systems/clock.ts';
+import { durationMsFromWall, roundOver, spawnDue, splitDt } from '../src/systems/clock.ts';
 import { startWatchdog, watchdogVerdict } from '../src/systems/watchdog.ts';
+import { canUpdateGameObject } from '../src/systems/sceneUi.ts';
 
 test('one lift impulse changes vy once', () => {
   const p = createPlane();
@@ -66,6 +67,21 @@ test('low-FPS physics dt is clamped but wall clock is not', () => {
   assert.equal(roundOver(60, 3), true);
   assert.equal(roundOver(59.9, 3), false);
   assert.equal(durationMsFromWall(60.4), 60_000);
+  assert.equal(spawnDue(41, 10), false);
+  assert.equal(spawnDue(41, 41), true);
+  assert.equal(spawnDue(50, 60), true);
+  let wallS = 0;
+  let physS = 0;
+  const thunderAt = 41;
+  let spawned = false;
+  for (let i = 0; i < 300 && !roundOver(wallS, 3); i++) {
+    const d = splitDt(200);
+    wallS += d.wall;
+    physS += d.phys;
+    if (spawnDue(thunderAt, wallS)) spawned = true;
+  }
+  assert.equal(spawned, true, 'wall clock must reach thunder at 41s');
+  assert.ok(physS < thunderAt, `physics dt would miss thunder: phys=${physS}`);
 });
 
 test('watchdog ignores low FPS while frames advance; reloads only on frozen RAF', () => {
@@ -109,4 +125,12 @@ test('unlock thresholds', () => {
   const r = applyRun({ best_score: 0, total_stars: 99, selected_skin: 'default', unlocked_skins: ['default'] }, 10, 2);
   assert.ok(r.unlocked.includes('sen-vang'));
   assert.equal(r.meta.total_stars, 101);
+});
+
+test('canUpdateGameObject blocks destroyed/inactive text', () => {
+  assert.equal(canUpdateGameObject(true, { active: true, scene: {} }), true);
+  assert.equal(canUpdateGameObject(false, { active: true, scene: {} }), false);
+  assert.equal(canUpdateGameObject(true, { active: false, scene: {} }), false);
+  assert.equal(canUpdateGameObject(true, { active: true, scene: null }), false);
+  assert.equal(canUpdateGameObject(true, null), false);
 });

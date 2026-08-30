@@ -16,3 +16,8 @@ export function roundOver(wallElapsedSec: number, lives: number, roundSec = ROUN
 export function durationMsFromWall(wallElapsedSec: number, roundMs = ROUND_SEC * 1000): number {
   return Math.min(roundMs, Math.max(1000, Math.round(wallElapsedSec * 1000)));
 }
+
+/** Spawn director uses wall/session time so throttle-clamped physics dt cannot skip late phases. */
+export function spawnDue(specT: number, wallElapsedSec: number): boolean {
+  return specT <= wallElapsedSec;
+}

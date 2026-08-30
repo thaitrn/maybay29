@@ -47,14 +47,21 @@ const rounds = [];
 async function playUntilOver(label) {
   const t0 = Date.now();
   let frames = [];
-  while (Date.now() - t0 < 70000) {
-    await tapGame(200, 360);
+  while (Date.now() - t0 < 75000) {
+    await page.evaluate(() => {
+      const g = window.game;
+      const s = g?.scene?.getScene?.('Game');
+      if (!s || g?.__scene !== 'Game') return;
+      const y = s.planeS?.y ?? 360;
+      if (y > 340) s.lift();
+    });
     const snap = await page.evaluate(() => {
       const g = window.game;
       const s = g?.scene?.getScene?.('Game');
       return {
         scene: g?.__scene,
         elapsed: s?.elapsed ?? null,
+        wallElapsed: s?.wallElapsed ?? null,
         frame: g?.loop?.frame ?? null,
         fps: g?.loop?.actualFps ?? null,
       };
@@ -68,10 +75,13 @@ async function playUntilOver(label) {
     scene: window.game?.__scene,
     result: window.game?.__result,
   }));
+  const seen = result.result?.seen || {};
+  const archetypes = ['cloud', 'vortex', 'thunder', 'scout', 'glider'];
+  const missing = archetypes.filter((k) => !seen[k]);
   const frameAdvanced = frames.filter((f) => f.frame != null).length >= 2 &&
     frames[frames.length - 1].frame > frames[1].frame;
-  rounds.push({ label, wall, result, frameAdvanced, last: frames.at(-1) });
-  return { wall, result, frameAdvanced };
+  rounds.push({ label, wall, result, frameAdvanced, last: frames.at(-1), missing });
+  return { wall, result, frameAdvanced, missing };
 }
 
 await tapGame(240, 500);
@@ -82,8 +92,6 @@ console.error(JSON.stringify({ fail: 'no result after round1', r1, errors, reloa
 await browser.close();
 process.exit(1);
 }
-await page.waitForTimeout(2500);
-
 await tapGame(240, 280);
 await page.waitForFunction(() => window.game && window.game.__scene === 'Game', { timeout: 12000 });
 const r2 = await playUntilOver('round2');
@@ -93,13 +101,12 @@ await browser.close();
 
 const navAfterStart = reloads.filter((n, i) => i > 0);
 const bad410 = finishes.filter((f) => f.status === 410);
-const canvasNoise = errors.filter((e) => e.includes("reading 'drawImage'"));
-const realErrors = errors.filter((e) => !e.includes("reading 'drawImage'"));
 const r1Timer = r1.result.result?.finish_reason === 'timer' ? r1.wall : null;
 const r2Timer = r2.result.result?.finish_reason === 'timer' ? r2.wall : null;
 const wallOk = [r1Timer, r2Timer].every((w) => w == null || (w >= 55000 && w <= 75000));
+const archeOk = r1.missing.length === 0 && r2.missing.length === 0;
 const ok =
-  realErrors.length === 0 &&
+  errors.length === 0 &&
   navAfterStart.length === 0 &&
   bad410.length === 0 &&
   finishes.every((f) => f.status === 200 || f.status === 201) &&
@@ -109,12 +116,13 @@ const ok =
   r1.frameAdvanced &&
   r2.frameAdvanced &&
   wallOk &&
+  archeOk &&
   r1.result.result?.finish_reason === 'timer' &&
   r2.result.result?.finish_reason === 'timer';
 
 const report = {
   url,
-  asset: 'assets/index-ljgHzyrU.js',
+  asset: new URL(url).origin + '/assets/',
   wallOk,
   r1Timer,
   rounds: rounds.map((r) => ({
@@ -124,7 +132,7 @@ const report = {
     reason: r.result.result?.finish_reason,
     duration_ms: r.result.result?.duration_ms,
     score: r.result.result?.score,
-    frameAdvanced: r.frameAdvanced,
+    missing: r.missing,
   })),
   finishes,
   reloads: navAfterStart,
