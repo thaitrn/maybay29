@@ -14,7 +14,8 @@ export async function buildApp({ logger = true } = {}) {
 
   const DEFAULT_ORIGINS = [
     'http://localhost:5173', 'http://localhost:5174', 'http://localhost:4391',
-    'https://thaitrn.github.io', 'https://maybay29-be.vercel.app',
+    'https://thaitrn.github.io', 'https://maybay29-api.vercel.app',
+    'https://maybay29-fe.vercel.app',
   ];
   const origins = process.env.CORS_ORIGIN
     ? process.env.CORS_ORIGIN.split(',').map(s => s.trim())
