@@ -3,7 +3,9 @@ import { defineConfig } from 'vite';
 export default defineConfig(({ mode }) => {
   const api = (process.env.VITE_API_BASE || 'https://maybay29-api.vercel.app').replace(/\/$/, '');
   if (mode === 'production') {
-    if (!api.startsWith('https://') || /localhost|127\.0\.0\.1/i.test(api)) {
+    const allowRelative = process.env.VITE_ALLOW_RELATIVE_API === '1';
+    const ok = api.startsWith('/') ? allowRelative : api.startsWith('https://') && !/localhost|127\.0\.0\.1/i.test(api);
+    if (!ok) {
       throw new Error(`Production VITE_API_BASE must be HTTPS canonical, got: ${api}`);
     }
   }

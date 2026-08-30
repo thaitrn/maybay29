@@ -2,7 +2,9 @@ const envBase = (import.meta as unknown as { env: { VITE_API_BASE?: string } }).
 export const API_BASE: string = envBase && envBase.length > 0 ? envBase.replace(/\/$/, '') : 'https://maybay29-api.vercel.app';
 
 if (typeof window !== 'undefined' && import.meta.env.PROD) {
-  if (!API_BASE.startsWith('https://') || /localhost|127\.0\.0\.1/i.test(API_BASE)) {
+  const allowRelative = import.meta.env.VITE_ALLOW_RELATIVE_API === '1';
+  const ok = API_BASE.startsWith('/') ? allowRelative : API_BASE.startsWith('https://') && !/localhost|127\.0\.0\.1/i.test(API_BASE);
+  if (!ok) {
     throw new Error(`Production API_BASE invalid: ${API_BASE}`);
   }
 }
