@@ -19,7 +19,8 @@ export function statsRoutes(fastify, { db, bad }) {
         await t.run('INSERT INTO session_stats (player_id, date, rounds, play_seconds, best_score) VALUES ($1, $2, $3, $4, $5)',
           [player_id, date, rounds, play_seconds, best_score]);
       } else {
-        await t.run('UPDATE session_stats SET rounds = $1, play_seconds = $2, best_score = MAX(best_score, $3) WHERE id = $4',
+        await t.run(`UPDATE session_stats SET rounds = $1, play_seconds = $2,
+          best_score = (CASE WHEN session_stats.best_score < $3 THEN $3 ELSE session_stats.best_score END) WHERE id = $4`,
           [cur.rounds + rounds, cur.play_seconds + play_seconds, best_score, cur.id]);
       }
     });

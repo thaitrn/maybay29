@@ -104,13 +104,15 @@ export function v3Routes(fastify, { db, bad }) {
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 1)`,
             [run_id, b.player_id, score, dur, b.finish_reason, st.stars, st.enemies, st.gates, st.near_misses, st.base_points, st.combo_bonus, st.max_combo, achievedAt]);
           await t.run(`INSERT INTO daily_stats (player_id, date, rounds, play_seconds, best_score) VALUES ($1, $2, 1, $3, $4)
-            ON CONFLICT(player_id, date) DO UPDATE SET rounds = rounds + 1, play_seconds = play_seconds + excluded.play_seconds, best_score = MAX(best_score, excluded.best_score)`,
+            ON CONFLICT(player_id, date) DO UPDATE SET rounds = rounds + 1, play_seconds = play_seconds + excluded.play_seconds,
+              best_score = (CASE WHEN daily_stats.best_score < excluded.best_score THEN excluded.best_score ELSE daily_stats.best_score END)`,
             [b.player_id, new Date().toISOString().slice(0, 10), Math.round(dur / 1000), score]);
         }
         return { replay: false, achievedAt };
       });
     } catch (e) {
       req.log.error({ err: e }, 'finish tx failed');
+      console.error('finish tx failed:', e.message);
       return bad(reply, 500, 'DB_ERROR', 'Không ghi được kết quả');
     }
     if (r.conflict) return bad(reply, 409, 'RUN_ALREADY_FINISHED', 'Run đã finish với payload khác');
@@ -133,19 +135,19 @@ export function v3Routes(fastify, { db, bad }) {
     if (!rateLimit(`lb:${req.ip}`, 60, 60_000)) return bad(reply, 429, 'RATE_LIMITED', 'Quá nhiều request');
     const limit = Math.min(50, Math.max(1, Number(req.query?.limit) || 10));
     const rows = await db.all(`
-      SELECT s.player_id, p.display_name, s.value AS score, s.max_combo, s.achieved_at,
-             ROW_NUMBER() OVER (ORDER BY s.value DESC, s.achieved_at ASC) AS rank
+      SELECT s.player_id, p.display_name, s.value AS score, s.max_combo, s.achieved_at
       FROM score_v3 s
-      JOIN (SELECT player_id, MAX(value) AS mv FROM score_v3 WHERE accepted = 1 GROUP BY player_id) t
-        ON t.player_id = s.player_id AND t.mv = s.value
       JOIN player p ON p.id = s.player_id
       WHERE s.accepted = 1
-      GROUP BY s.player_id
+        AND NOT EXISTS (
+          SELECT 1 FROM score_v3 s2
+          WHERE s2.player_id = s.player_id AND s2.accepted = 1
+            AND (s2.value > s.value OR (s2.value = s.value AND s2.achieved_at < s.achieved_at))
+        )
       ORDER BY score DESC, s.achieved_at ASC
       LIMIT $1`, [limit]);
-    return {
-      leaderboard: rows.map(r => ({ rank: Number(r.rank), display_name: r.display_name, score: r.score, max_combo: r.max_combo, achieved_at: r.achieved_at })),
-      config_version: CONFIG_VERSION,
-    };
+    rows.sort((a, b) => b.score - a.score || String(a.achieved_at).localeCompare(String(b.achieved_at)));
+    const lb = rows.map((r, i) => ({ rank: i + 1, display_name: r.display_name, score: r.score, max_combo: r.max_combo, achieved_at: r.achieved_at }));
+    return { leaderboard: lb, config_version: CONFIG_VERSION };
   });
 }
