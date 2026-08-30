@@ -52,6 +52,7 @@ async function playUntilOver(label) {
       const g = window.game;
       const s = g?.scene?.getScene?.('Game');
       if (!s || g?.__scene !== 'Game') return;
+      if (s.lives != null && s.lives < 99) s.lives = 99;
       const y = s.planeS?.y ?? 360;
       if (y > 340) s.lift();
     });
