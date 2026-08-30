@@ -1,6 +1,6 @@
 # PRD v3 — Rebuild Máy Bay Mừng 2/9 và phục hồi GameHub
 
-- Trạng thái: READY FOR BUILD
+- Trạng thái: DESIGN-READY-FOR-CEO-REVIEW — chưa PRD-APPROVED, chưa được khởi động FE integration
 - Ngày: 2026-08-30
 - Owner quyết định: Product/BA/Solution Architecture/UI-UX
 - Phạm vi tài liệu: gameplay Maybay29, leaderboard contract, source/deploy provenance, điều kiện đưa lại vào GameHub
@@ -385,6 +385,74 @@ Copy tối thiểu:
 - Offline: “Bảng xếp hạng đang offline — điểm vẫn lưu trên máy.”
 - No quiz in MVP.
 
+### 9.1 Visual direction đã chọn — UI/UX Design gate
+
+**Hướng nghệ thuật:** `Vietnamese pixel-folk arcade`. Sprite 64×64 có pixel cluster rõ, silhouette gọn, outline cứng; bề mặt UI dùng kem giấy dó và viền đen than; bầu trời xanh sâu để đỏ-vàng quốc kỳ chỉ tập trung ở player/reward. Đây là hướng sản xuất, không phải concept ngẫu nhiên: nó giữ fantasy Sứ giả Chim Lạc của mục 1, đủ nhẹ cho Phaser/mobile và tách player/pickup khỏi hazard tím-xám theo AC-03/AC-08.
+
+**Palette và vai trò bắt buộc:**
+
+| Token | Hex | Vai trò / giới hạn |
+|---|---|---|
+| `sky-deep` | `#123A63` | Nền chính, không dùng cho hitbox/telegraph |
+| `sky-lake` | `#1B7FA8` | Gradient xa và accent không tương tác |
+| `flag-red` | `#DA251D` | Thân phi cơ/CTA; không dùng làm enemy |
+| `star-yellow` | `#FFD84D` | Sao Lạc, reward, focus accent |
+| `paper-cream` | `#F5E9D0` | Outline player, text sáng, panel |
+| `ink-warm` | `#2B2118` | Viền/panel/skyline, không làm enemy hòa vào nền |
+| `hazard-violet` | `#514463` | Cổng Mây/hazard tĩnh |
+| `wind-cyan` | `#65B8C8` | Gió Xoáy và telegraph hướng |
+| `danger` | `#E5484D` | Damage flash/cảnh báo, luôn kèm icon/motion |
+
+**Lựa chọn hình ảnh:**
+
+- Player là phi cơ cánh quạt Chim Lạc nhìn ngang, mũi hướng phải, thân đỏ-vàng và outline kem. Không chọn nhân vật người riêng vì canvas gameplay 480×720 cần một silhouette duy nhất, hitbox thân máy bay rõ và fantasy “lái phi cơ” không bị tách đôi.
+- Hazard family dùng ba hình thái khác nhau: Cổng Mây tím có khoảng trống âm; Gió Xoáy cyan có chuyển động xoắn; Cột Mưa Giông gần chữ nhật tối có tia vàng. Hai Chim Bóng giữ charcoal silhouette nhưng pose thẳng/lượn khác nhau để báo behavior trước khi cần đọc trajectory.
+- Reward family dùng Sao Lạc vàng và Khiên Sen cyan-vàng; không truyền nghĩa chỉ bằng màu: star có năm cánh, shield có cánh sen/vành bảo hộ.
+- HUD motif lấy trực tiếp Sao Lạc/Khiên Sen từ cùng pack, kết hợp ba tim, mũi tên lift và sound glyph. Geometry điều khiển được dựng xác định bằng script để icon trạng thái không phụ thuộc chữ AI sinh.
+
+### 9.2 Asset manifest và provenance
+
+Nguồn Meowa duy nhất được dùng: `pixel-gen-run`, template `object`, normal mode, advanced background removal; job `job_8094946e6faf4124895457d981caf89d`. Prompt yêu cầu đúng 8 vai trò gameplay trong mục 5.4, cùng limited palette, mobile-readable silhouette và không text. `final_outputs.json` của job nằm trong `assets/meowa/sources/gameplay-pack/.../final_outputs.json`; source preview không phải runtime asset.
+
+| File selected | Kích thước | Alpha | Purpose |
+|---|---:|---|---|
+| `assets/meowa/selected/player-chim-lac-plane.png` | 64×64 | Có | Player/vehicle, side-view facing right |
+| `assets/meowa/selected/hazard-cloud-gate.png` | 64×64 | Có | Cổng Mây; FE tách/scale upper-lower theo gap contract, không scale hitbox theo toàn canvas |
+| `assets/meowa/selected/hazard-wind-vortex.png` | 64×64 | Có | Gió Xoáy; direction arrow vẫn phải có telegraph runtime >=600ms |
+| `assets/meowa/selected/hazard-thunder-column.png` | 64×64 | Có | Cột Mưa Giông; tile/stack dọc, bật-tắt theo director |
+| `assets/meowa/selected/enemy-shadow-scout.png` | 64×64 | Có | Chim Bóng bay thẳng |
+| `assets/meowa/selected/enemy-shadow-glider.png` | 64×64 | Có | Chim Bóng sine/lượn |
+| `assets/meowa/selected/collectible-sao-lac.png` | 64×64 | Có | Collectible +10/streak event |
+| `assets/meowa/selected/pickup-lotus-shield.png` | 64×64 | Có | Khiên Sen 6 giây, không stack |
+| `assets/meowa/selected/hud-control-motif.png` | 640×160 | Có | Reference/atlas motif cho star, shield, lives, lift, sound; không dùng nguyên dải làm hit target |
+| `assets/meowa/selected/app-icon-512.png` | 512×512 | Không | App icon; crop-safe trong circle/squircle, không có chữ nhỏ |
+| `assets/meowa/selected/gamehub-cover-1200x630.png` | 1200×630 | Không | GameHub/OpenGraph cover, đúng tỉ lệ yêu cầu |
+| `assets/meowa/contact-sheet.png` | 1400×1040 | Không | CEO review toàn bộ lựa chọn trên một sheet |
+
+`assets/meowa/manifest.json` là manifest máy đọc được. `assets/meowa/build_selected.py` là hậu xử lý có kiểm soát: copy từng output 64×64 theo thứ tự prompt; scale pixel art bằng nearest-neighbor; compose app icon, cover 1200×630, HUD và contact sheet; không chạy pixelation lại và không sửa source Meowa.
+
+**Selection rationale / rejected variants:** tám output là tám role khác nhau theo đúng thứ tự prompt, không phải tám biến thể cạnh tranh; cả tám được chọn vì mỗi role có silhouette riêng và alpha thật. `sprite_pack_preview.png` bị loại khỏi runtime vì chỉ là aggregate review. Pack GameForge cũ trong `fe/public/gf/` không được chọn cho rebuild vì nó mô tả loop star/smoke/clock cũ, thiếu Cổng Mây, Gió Xoáy, Cột Mưa Giông, Chim Bóng và Khiên Sen. Không rerun biến thể Meowa sau job đầu tiên vì cost thực tế đã vượt cap; CEO cần review contact sheet trước khi quyết định có thay candidate nào.
+
+### 9.3 Mobile readability, accessibility và integration contract
+
+- Render sprite 64×64 ở integer scale khi có thể; `imageSmoothingEnabled=false`/nearest-neighbor. Không downscale bằng bilinear. Đánh giá ở viewport 320×568 và DPR 1/2/3, không chỉ contact sheet lớn.
+- Player body hiển thị tối thiểu 48 CSS px theo chiều dài ở design space; hitbox inset >=6 design px và chỉ bám thân nhìn thấy, không lấy toàn alpha canvas/cánh quạt làm damage box.
+- Pickup hiển thị tối thiểu 32 CSS px; hazard telegraph tối thiểu 600ms. Star/shield khác shape; three-lives có số/icon; combo luôn có `xN`; meter có fill + mốc 12, không chỉ đổi màu.
+- Tương phản text/HUD mục tiêu WCAG AA: text thường >=4.5:1, text lớn/icon essential >=3:1 với nền trực tiếp. Khi nền chuyển động, dùng panel `sky-deep` alpha >=0.90 hoặc stroke kem/ink.
+- `prefers-reduced-motion` tắt pulse/shake phụ nhưng giữ arrow/path telegraph; không flash >3Hz. App icon và cover chỉ là marketing surface, không được dùng thay telegraph gameplay.
+- `hud-control-motif.png` là visual reference/atlas source; FE phải tách component và tạo target mute >=44×44 CSS px, không gắn pointer vào pixel bounds nhỏ.
+
+### 9.4 GameHub icon/cover và credit evidence
+
+- App icon: `assets/meowa/selected/app-icon-512.png`, phi cơ đỏ-vàng trên sky circle; source player `sprite_00.png` + Sao Lạc `sprite_06.png`, compose deterministic, không text nên vẫn đọc ở 48px.
+- GameHub cover: `assets/meowa/selected/gamehub-cover-1200x630.png`, exact 1200×630; scene phi cơ → Sao Lạc → Cổng Mây, Chim Bóng phía trước và skyline lễ hội. Title là nội dung cover, không thay cho `coverAlt` ở mục 11.
+- Balance trước job: 190 credits; sau job: 118; **đã dùng 72 credits**. Expected cap của task là <=40, actual vượt **32 credits** dù chỉ chạy một job normal mode; reserve còn 118, lớn hơn minimum 30. Ngay khi đọc balance sau job, dừng toàn bộ generation trả phí và chỉ hậu xử lý local. Đây là deviation cần CEO chấp nhận hoặc yêu cầu phương án khác; không được ghi là đạt budget gate.
+- Không có secret/API key trong source, manifest hoặc PRD.
+
+### 9.5 Design acceptance gate
+
+Artifact hiện chỉ mang verdict **DESIGN-READY-FOR-CEO-REVIEW**. CEO review contact sheet và PRD phải quyết định: (a) chấp nhận visual direction/candidate set và deviation +32 credits, hoặc (b) chỉ rõ role cần thay. Trước quyết định đó, không tạo/khởi động FE integration. Approval thiết kế cũng không thay FUN-GATE/QA/release gate ở mục 7 và 12.
+
 ## 10. MoSCoW và out of scope
 
 ### Must
@@ -445,10 +513,13 @@ Residual risks:
 - Summary validation giảm cheat phổ thông nhưng không chống client giả mạo hoàn toàn.
 - Random pattern có thể tạo unfair sequence nếu director/seed tests không đủ; giữ curated pattern pool trong MVP.
 - Fantasy/FX có nguy cơ che telegraph trên máy nhỏ; reduced motion và contrast phải được exploratory check.
+- Job Meowa đầu tiên trừ 72 credits, vượt cap 40 credits của design task 32 credits; đã dừng mọi generation tiếp theo, balance còn 118. CEO phải quyết định chấp nhận deviation trước FE.
+- Asset mới chỉ được kiểm định file contract/alpha/kích thước và review sheet; chưa có runtime-scale browser evidence. FE/QA phải kiểm silhouette, contrast và hitbox trên 320×568 trước FUN-GATE.
 
 ## 13. Responsibility / next action
 
-- Frontend: implement core loop/UI theo AC, thiết lập source provenance, build/deploy canonical FE và self-play full session.
+- CEO: review `assets/meowa/contact-sheet.png`, visual direction, asset manifest và deviation credit; đưa verdict PRD-APPROVED hoặc chỉ rõ role cần thay.
+- Frontend: **chưa khởi động integration trước CEO approval**. Sau approval mới implement core loop/UI theo AC, thiết lập source provenance, build/deploy canonical FE và self-play full session.
 - Backend: implement/verify v3 contract, persistence/validation/rate limit, deploy HTTPS và probe POST→GET.
 - PM acceptance downstream: tự chơi >=5 phút, chấm FUN-GATE; không tái dùng approval cũ.
 - QA: independent production evidence + exploratory 5 phút.

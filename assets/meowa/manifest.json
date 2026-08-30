@@ -1,0 +1,94 @@
+{
+  "meowa_job_id": "job_8094946e6faf4124895457d981caf89d",
+  "capability": "pixel-gen-run",
+  "template": "object",
+  "generation_speed": "normal",
+  "remove_bg_method": "advanced",
+  "prompt": "A cohesive set of eight Vietnamese festival flying arcade game sprites: one side-view red and gold Chim Lac propeller plane facing right with a cream outline; one dark violet cloud gate formed by an upper and lower cloud with a clear gap; one blue-gray wind vortex with a direction arrow; one dark thunder rain column; one charcoal shadow bird scout flying right; one charcoal shadow bird gliding in a curved pose; one bright yellow Sao Lac star collectible; one cyan and gold lotus shield pickup. Crisp simple silhouettes, limited palette, readable at mobile size, no text.",
+  "source_output_size": [
+    64,
+    64
+  ],
+  "credits_before": 190,
+  "credits_after": 118,
+  "credits_used": 72,
+  "source_mapping": {
+    "player-chim-lac-plane.png": "sprite_00.png",
+    "hazard-cloud-gate.png": "sprite_01.png",
+    "hazard-wind-vortex.png": "sprite_02.png",
+    "hazard-thunder-column.png": "sprite_03.png",
+    "enemy-shadow-scout.png": "sprite_04.png",
+    "enemy-shadow-glider.png": "sprite_05.png",
+    "collectible-sao-lac.png": "sprite_06.png",
+    "pickup-lotus-shield.png": "sprite_07.png"
+  },
+  "postprocess": "Deterministic Pillow composition; nearest-neighbor sprite scaling; source outputs unchanged.",
+  "selected": [
+    {
+      "file": "assets/meowa/selected/app-icon-512.png",
+      "width": 512,
+      "height": 512,
+      "mode": "RGBA"
+    },
+    {
+      "file": "assets/meowa/selected/collectible-sao-lac.png",
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA"
+    },
+    {
+      "file": "assets/meowa/selected/enemy-shadow-glider.png",
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA"
+    },
+    {
+      "file": "assets/meowa/selected/enemy-shadow-scout.png",
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA"
+    },
+    {
+      "file": "assets/meowa/selected/gamehub-cover-1200x630.png",
+      "width": 1200,
+      "height": 630,
+      "mode": "RGBA"
+    },
+    {
+      "file": "assets/meowa/selected/hazard-cloud-gate.png",
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA"
+    },
+    {
+      "file": "assets/meowa/selected/hazard-thunder-column.png",
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA"
+    },
+    {
+      "file": "assets/meowa/selected/hazard-wind-vortex.png",
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA"
+    },
+    {
+      "file": "assets/meowa/selected/hud-control-motif.png",
+      "width": 640,
+      "height": 160,
+      "mode": "RGBA"
+    },
+    {
+      "file": "assets/meowa/selected/pickup-lotus-shield.png",
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA"
+    },
+    {
+      "file": "assets/meowa/selected/player-chim-lac-plane.png",
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA"
+    }
+  ]
+}
