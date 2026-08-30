@@ -1,0 +1,36 @@
+// Metric engagement: POST /v2/stats (upsert cộng dồn theo player+date), GET /v2/stats/:player_id
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function statsRoutes(fastify, { db, bad }) {
+  fastify.post('/v2/stats', async (req, reply) => {
+    const { player_id, date, rounds, play_seconds, best_score } = req.body ?? {};
+    if (!UUID_RE.test(player_id ?? '')) return bad(reply, 400, 'INVALID_PLAYER_ID', 'player_id phải là UUID v4');
+    if (!DATE_RE.test(date ?? '')) return bad(reply, 400, 'INVALID_DATE', 'date phải là YYYY-MM-DD');
+    if (!Number.isInteger(rounds) || rounds < 0) return bad(reply, 400, 'INVALID_ROUNDS', 'rounds >= 0');
+    if (!Number.isInteger(play_seconds) || play_seconds < 0) return bad(reply, 400, 'INVALID_PLAY_SECONDS', 'play_seconds >= 0');
+    if (!Number.isInteger(best_score) || best_score < 0) return bad(reply, 400, 'INVALID_BEST_SCORE', 'best_score >= 0');
+    if (!db.prepare('SELECT id FROM player WHERE id = ?').get(player_id)) {
+      return bad(reply, 404, 'PLAYER_NOT_FOUND', 'Chưa register player');
+    }
+    const upsert = db.transaction(() => {
+      const cur = db.prepare('SELECT id, rounds, play_seconds, best_score FROM session_stats WHERE player_id = ? AND date = ?').get(player_id, date);
+      if (!cur) {
+        db.prepare('INSERT INTO session_stats (player_id, date, rounds, play_seconds, best_score) VALUES (?, ?, ?, ?, ?)')
+          .run(player_id, date, rounds, play_seconds, best_score);
+      } else {
+        db.prepare('UPDATE session_stats SET rounds = ?, play_seconds = ?, best_score = MAX(best_score, ?) WHERE id = ?')
+          .run(cur.rounds + rounds, cur.play_seconds + play_seconds, best_score, cur.id);
+      }
+    });
+    upsert();
+    const row = db.prepare('SELECT player_id, date, rounds, play_seconds, best_score, created_at FROM session_stats WHERE player_id = ? AND date = ?').get(player_id, date);
+    return reply.status(201).send(row);
+  });
+
+  fastify.get('/v2/stats/:player_id', async (req, reply) => {
+    if (!UUID_RE.test(req.params.player_id)) return bad(reply, 400, 'INVALID_PLAYER_ID', 'player_id phải là UUID v4');
+    const rows = db.prepare('SELECT date, rounds, play_seconds, best_score, created_at FROM session_stats WHERE player_id = ? ORDER BY date ASC').all(req.params.player_id);
+    return { player_id: req.params.player_id, count: rows.length, stats: rows };
+  });
+}
