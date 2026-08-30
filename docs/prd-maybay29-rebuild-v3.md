@@ -1,6 +1,6 @@
 # PRD v3 — Rebuild Máy Bay Mừng 2/9 và phục hồi GameHub
 
-- Trạng thái: DESIGN-READY-FOR-CEO-REVIEW — chưa PRD-APPROVED, chưa được khởi động FE integration
+- Trạng thái: **PRD-APPROVED (CEO, 2026-08-30)** — được phép chuẩn bị handoff FE; chưa FUN-PASS, QA-PASS hoặc release-approved
 - Ngày: 2026-08-30
 - Owner quyết định: Product/BA/Solution Architecture/UI-UX
 - Phạm vi tài liệu: gameplay Maybay29, leaderboard contract, source/deploy provenance, điều kiện đưa lại vào GameHub
@@ -446,12 +446,18 @@ Nguồn Meowa duy nhất được dùng: `pixel-gen-run`, template `object`, nor
 
 - App icon: `assets/meowa/selected/app-icon-512.png`, phi cơ đỏ-vàng trên sky circle; source player `sprite_00.png` + Sao Lạc `sprite_06.png`, compose deterministic, không text nên vẫn đọc ở 48px.
 - GameHub cover: `assets/meowa/selected/gamehub-cover-1200x630.png`, exact 1200×630; scene phi cơ → Sao Lạc → Cổng Mây, Chim Bóng phía trước và skyline lễ hội. Title là nội dung cover, không thay cho `coverAlt` ở mục 11.
-- Balance trước job: 190 credits; sau job: 118; **đã dùng 72 credits**. Expected cap của task là <=40, actual vượt **32 credits** dù chỉ chạy một job normal mode; reserve còn 118, lớn hơn minimum 30. Ngay khi đọc balance sau job, dừng toàn bộ generation trả phí và chỉ hậu xử lý local. Đây là deviation cần CEO chấp nhận hoặc yêu cầu phương án khác; không được ghi là đạt budget gate.
+- Balance trước job: 190 credits; sau job: 118; **đã dùng 72 credits**. Expected cap của task là <=40, actual vượt **32 credits** dù chỉ chạy một job normal mode; reserve còn 118, lớn hơn minimum 30. Ngay khi đọc balance sau job, dừng toàn bộ generation trả phí và chỉ hậu xử lý local. CEO đã chấp nhận ngoại lệ chi phí này ngày 2026-08-30; budget gate vẫn được ghi nhận là deviation, không đổi actual thành đạt cap. Không được chạy thêm paid generation.
 - Không có secret/API key trong source, manifest hoặc PRD.
 
 ### 9.5 Design acceptance gate
 
-Artifact hiện chỉ mang verdict **DESIGN-READY-FOR-CEO-REVIEW**. CEO review contact sheet và PRD phải quyết định: (a) chấp nhận visual direction/candidate set và deviation +32 credits, hoặc (b) chỉ rõ role cần thay. Trước quyết định đó, không tạo/khởi động FE integration. Approval thiết kế cũng không thay FUN-GATE/QA/release gate ở mục 7 và 12.
+Verdict: **PRD-APPROVED (CEO, 2026-08-30)**. CEO Jack.T đã review `assets/meowa/contact-sheet.png`, duyệt visual direction/candidate set và chấp nhận deviation +32 credits. Selected assets trong mục 9.2 là baseline được phép handoff cho FE; dừng toàn bộ paid generation tiếp theo và giữ balance 118 làm reserve. Approval này chỉ mở gate chuẩn bị/triển khai FE theo PRD, không thay FUN-GATE, QA hoặc release gate ở mục 7 và 12.
+
+### 9.6 Decision Log
+
+| Ngày | Người quyết định | Quyết định | Evidence / tác động |
+|---|---|---|---|
+| 2026-08-30 | CEO Jack.T | **PRD-APPROVED** cho Maybay29: duyệt visual của player/vehicle, hazard/enemy, reward/collectible, HUD motif, app icon và GameHub cover; chấp nhận ngoại lệ Meowa 72/40 credits. | Review `assets/meowa/contact-sheet.png`; provenance và actual credit ở `assets/meowa/manifest.json`. Không generate trả phí thêm; giữ 118 credits làm reserve; cho phép chuẩn bị handoff FE với selected assets. |
 
 ## 10. MoSCoW và out of scope
 
@@ -513,13 +519,13 @@ Residual risks:
 - Summary validation giảm cheat phổ thông nhưng không chống client giả mạo hoàn toàn.
 - Random pattern có thể tạo unfair sequence nếu director/seed tests không đủ; giữ curated pattern pool trong MVP.
 - Fantasy/FX có nguy cơ che telegraph trên máy nhỏ; reduced motion và contrast phải được exploratory check.
-- Job Meowa đầu tiên trừ 72 credits, vượt cap 40 credits của design task 32 credits; đã dừng mọi generation tiếp theo, balance còn 118. CEO phải quyết định chấp nhận deviation trước FE.
+- Job Meowa đầu tiên trừ 72 credits, vượt cap 40 credits của design task 32 credits; CEO đã chấp nhận deviation ngày 2026-08-30. Đã dừng mọi paid generation tiếp theo và giữ balance còn 118 làm reserve.
 - Asset mới chỉ được kiểm định file contract/alpha/kích thước và review sheet; chưa có runtime-scale browser evidence. FE/QA phải kiểm silhouette, contrast và hitbox trên 320×568 trước FUN-GATE.
 
 ## 13. Responsibility / next action
 
-- CEO: review `assets/meowa/contact-sheet.png`, visual direction, asset manifest và deviation credit; đưa verdict PRD-APPROVED hoặc chỉ rõ role cần thay.
-- Frontend: **chưa khởi động integration trước CEO approval**. Sau approval mới implement core loop/UI theo AC, thiết lập source provenance, build/deploy canonical FE và self-play full session.
+- CEO: **đã hoàn tất design gate ngày 2026-08-30** — PRD-APPROVED, duyệt selected assets và chấp nhận deviation 72/40 credits; chưa phê duyệt FUN/QA/release downstream.
+- Frontend: được phép nhận handoff và implement core loop/UI theo AC với selected assets; thiết lập source provenance, build/deploy canonical FE và self-play full session. Không được chạy thêm paid asset generation.
 - Backend: implement/verify v3 contract, persistence/validation/rate limit, deploy HTTPS và probe POST→GET.
 - PM acceptance downstream: tự chơi >=5 phút, chấm FUN-GATE; không tái dùng approval cũ.
 - QA: independent production evidence + exploratory 5 phút.
