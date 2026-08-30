@@ -104,7 +104,7 @@ export function v3Routes(fastify, { db, bad }) {
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 1)`,
             [run_id, b.player_id, score, dur, b.finish_reason, st.stars, st.enemies, st.gates, st.near_misses, st.base_points, st.combo_bonus, st.max_combo, achievedAt]);
           await t.run(`INSERT INTO daily_stats (player_id, date, rounds, play_seconds, best_score) VALUES ($1, $2, 1, $3, $4)
-            ON CONFLICT(player_id, date) DO UPDATE SET rounds = rounds + 1, play_seconds = play_seconds + excluded.play_seconds,
+            ON CONFLICT(player_id, date) DO UPDATE SET rounds = daily_stats.rounds + 1, play_seconds = daily_stats.play_seconds + excluded.play_seconds,
               best_score = (CASE WHEN daily_stats.best_score < excluded.best_score THEN excluded.best_score ELSE daily_stats.best_score END)`,
             [b.player_id, new Date().toISOString().slice(0, 10), Math.round(dur / 1000), score]);
         }
